@@ -1,0 +1,15 @@
+## Interface: 30300
+## Title: RotationMaster
+## Notes: Auto-rotation system for 3.3.5a
+## Author: Ваше имя
+## Version: 1.0
+## SavedVariables: RotationMasterDB
+
+Core.lua
+FrostDK.lua
+TankAgr.lua
+AnholiDK.lua
+TankHil.lua
+BalanceDruid.lua
+FeralDruid.lua
+RestoDruid.lua
