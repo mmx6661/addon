@@ -1,33 +1,25 @@
 print("|cFF00FF00RotationMaster: Core.lua загружен|r")
 
--- Глобальная таблица аддона
 RotationMaster = {
     frame = nil,
-    rotationFrame = nil,
+    rotationFrame = nil,  -- Новый фрейм для ротации
     isEnabled = false,
     activeRotation = nil,
     minWidth = 220,
     minHeight = 220,
     debugMode = true,
     dbName = "RotationMasterDB",
-    
     rotations = {
         DK = {
-            FrostDK = {
-                name = "Фрост ДК",
-                settings = {
-                    useHornOfWinter = true,
-                    useUnbreakableArmor = true
-                }
-            },
-            AnholiDK = {name = "Анхоли ДК", settings = {}},
-            TankAgr = {name = "Танк (Агр)", settings = {}},
-            TankHil = {name = "Танк (Отхил)", settings = {}}
+            FrostDK = "Фрост ДК",
+            AnholiDK = "Анхоли ДК",
+            TankAgr = "Танк (Агр)",
+            TankHil = "Танк (Отхил)",
         },
         Druid = {
-            BalanceDruid = {name = "Баланс Друид", settings = {}},
-            FeralDruid = {name = "Кот-Друид", settings = {}},
-            RestoDruid = {name = "Рестор-Друид", settings = {}}
+            BalanceDruid = "Баланс Друид",
+            FeralDruid = "Кот-Друид",
+            RestoDruid = "Рестор-Друид"
         }
     }
 }
@@ -42,12 +34,10 @@ function RotationMaster:ErrorPrint(msg)
 end
 
 function RotationMaster:DebugPrint(debugMsg)
-    if self.debugMode then
-        print("|cFF00CCFF[DEBUG]|r " .. debugMsg)
-    end
+    print("|cFF00CCFF[DEBUG]|r " .. debugMsg)
 end
 
--- Кнопка у миникарты
+-- Кнопка у миникарты (исправленная)
 function RotationMaster:CreateMinimapButton()
     local button = CreateFrame("Button", "RotationMasterMinimapButton", Minimap)
     button:SetSize(32, 32)
@@ -55,16 +45,19 @@ function RotationMaster:CreateMinimapButton()
     button:SetMovable(true)
     button:RegisterForDrag("LeftButton")
 
+    -- Фон (Horde emblem)
     button.background = button:CreateTexture(nil, "BACKGROUND")
     button.background:SetTexture("Interface\\TargetingFrame\\UI-PVP-Horde")
-    button.background:SetSize(40, 40)
-    button.background:SetPoint("CENTER", -4, 3)
+    button.background:SetSize(40, 40) -- Размер фона равен размеру кнопки
+    button.background:SetPoint("CENTER", -4, 3) -- Центрирование фона
 
-    button.border = button:CreateTexture(nil, "ARTWORK")
+    -- Окантовка (стиль миникарты)
+    button.border = button:CreateTexture(nil, "ARTWORK") -- Слой ARTWORK, чтобы не конфликтовать с фоном
     button.border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-    button.border:SetSize(54, 54)
-    button.border:SetPoint("CENTER", 0, 0)
+    button.border:SetSize(54, 54) -- Размер окантовки
+    button.border:SetPoint("CENTER", 0, 0) -- Центрирование окантовки
 
+    -- Перемещение
     button:SetScript("OnDragStart", function(self)
         self:StartMoving()
     end)
@@ -80,14 +73,20 @@ function RotationMaster:CreateMinimapButton()
         self:SetPoint("CENTER", Minimap, "CENTER", radius * cos(angle), radius * sin(angle))
     end)
 
+    -- Обработчик нажатия
     button:SetScript("OnClick", function()
         if not RotationMaster.frame then
             RotationMaster:CreateGUI()
             RotationMaster:LoadSettings()
         end
-        RotationMaster.frame:SetShown(not RotationMaster.frame:IsShown())
+        if RotationMaster.frame:IsShown() then
+            RotationMaster.frame:Hide()
+        else
+            RotationMaster.frame:Show()
+        end
     end)
 
+    -- Подсказка
     button:SetScript("OnEnter", function()
         GameTooltip:SetOwner(button, "ANCHOR_BOTTOMLEFT")
         GameTooltip:SetText("Rotation Master")
@@ -101,7 +100,7 @@ function RotationMaster:CreateMinimapButton()
     end)
 end
 
--- Главное окно
+-- GUI (главное окно)
 function RotationMaster:CreateGUI()
     if self.frame then return end
 
@@ -128,7 +127,7 @@ function RotationMaster:CreateGUI()
     local closeBtn = CreateFrame("Button", nil, self.frame, "UIPanelCloseButton")
     closeBtn:SetPoint("TOPRIGHT", -5, -5)
     closeBtn:SetScript("OnClick", function()
-        self.frame:Hide()
+        self.frame:Hide()  -- Только скрывает окно
     end)
 
     -- Кнопки классов
@@ -173,127 +172,19 @@ function RotationMaster:CreateGUI()
         self:SaveSettings()
     end)
 
-    -- Обработчики перемещения
+    -- Обработчики перемещения окна
     self.frame:SetScript("OnMouseDown", function(_, btn)
         if btn == "LeftButton" then
             self.frame:StartMoving()
         end
     end)
-    
     self.frame:SetScript("OnMouseUp", function()
         self.frame:StopMovingOrSizing()
         self:SaveSettings()
     end)
-
-    self.frame:SetScript("OnHide", function()
-        self:SaveSettings()
-    end)
 end
 
--- Настройки ротации
-function RotationMaster:ShowRotationSettings(class, rotationKey)
-    if self.settingsFrame then self.settingsFrame:Hide() end
-    
-    self.settingsFrame = CreateFrame("Frame", "RM_SettingsFrame", UIParent)
-    self.settingsFrame:SetSize(250, 150)
-    self.settingsFrame:SetPoint("CENTER")
-    self.settingsFrame:SetBackdrop({
-        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 32,
-        insets = {left = 11, right = 12, top = 12, bottom = 11}
-    })
-
-    local title = self.settingsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    title:SetPoint("TOP", 0, -12)
-    title:SetText("Настройки ротации")
-
-    local closeBtn = CreateFrame("Button", nil, self.settingsFrame, "UIPanelCloseButton")
-    closeBtn:SetPoint("TOPRIGHT", -5, -5)
-    closeBtn:SetScript("OnClick", function()
-        self.settingsFrame:Hide()
-    end)
-
-    local settings = self.rotations[class][rotationKey].settings
-    
-    -- Зимний горн
-    local hornCheckbox = CreateFrame("CheckButton", "RM_HornCheckbox", self.settingsFrame, "UICheckButtonTemplate")
-    hornCheckbox:SetPoint("TOPLEFT", 20, -40)
-    hornCheckbox:SetChecked(settings.useHornOfWinter)
-    hornCheckbox:SetScript("OnClick", function()
-        settings.useHornOfWinter = hornCheckbox:GetChecked()
-    end)
-    
-    local hornText = self.settingsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    hornText:SetPoint("LEFT", hornCheckbox, "RIGHT", 5, 0)
-    hornText:SetText("Использовать Зимний горн")
-
-    -- Несокрушимая броня
-    local armorCheckbox = CreateFrame("CheckButton", "RM_ArmorCheckbox", self.settingsFrame, "UICheckButtonTemplate")
-    armorCheckbox:SetPoint("TOPLEFT", 20, -80)
-    armorCheckbox:SetChecked(settings.useUnbreakableArmor)
-    armorCheckbox:SetScript("OnClick", function()
-        settings.useUnbreakableArmor = armorCheckbox:GetChecked()
-    end)
-    
-    local armorText = self.settingsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    armorText:SetPoint("LEFT", armorCheckbox, "RIGHT", 5, 0)
-    armorText:SetText("Использовать Несокрушимую броню")
-end
-
--- Список ротаций
-function RotationMaster:ShowRotationList(class)
-    if self.rotationList then self.rotationList:Hide() end
-
-    self.rotationList = CreateFrame("Frame", "RM_RotationList", self.frame)
-    self.rotationList:SetSize(200, 170)
-    self.rotationList:SetPoint("LEFT", self.frame, "RIGHT", 10, 0)
-    self.rotationList:SetBackdrop({
-        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 32,
-        insets = {left = 11, right = 12, top = 12, bottom = 11}
-    })
-
-    local title = self.rotationList:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    title:SetPoint("TOP", 0, -10)
-    title:SetText("Выберите ротацию")
-
-    local closeBtn = CreateFrame("Button", nil, self.rotationList, "UIPanelCloseButton")
-    closeBtn:SetPoint("TOPRIGHT", -5, -5)
-    closeBtn:SetScript("OnClick", function()
-        self.rotationList:Hide()
-    end)
-
-    local settingsBtn = CreateFrame("Button", nil, self.rotationList, "UIPanelButtonTemplate")
-    settingsBtn:SetSize(100, 22)
-    settingsBtn:SetPoint("BOTTOM", 0, 20)
-    settingsBtn:SetText("Настройки")
-    settingsBtn:SetScript("OnClick", function()
-        if self.activeRotation then
-            self:ShowRotationSettings(class, self.activeRotation.key)
-        end
-    end)
-
-    local yOffset = -40
-    for rotationKey, rotationData in pairs(self.rotations[class]) do
-        local checkbox = CreateFrame("CheckButton", "RM_RotationCheckbox_" .. rotationKey, self.rotationList, "UICheckButtonTemplate")
-        checkbox:SetPoint("TOPLEFT", 20, yOffset)
-        checkbox:SetChecked(self.activeRotation and self.activeRotation.key == rotationKey)
-        checkbox:SetScript("OnClick", function()
-            self:ToggleRotation(rotationKey, checkbox:GetChecked())
-            self.activeRotation = {key = rotationKey, name = rotationData.name}
-        end)
-
-        local text = self.rotationList:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        text:SetPoint("LEFT", checkbox, "RIGHT", 5, 0)
-        text:SetText(rotationData.name)
-
-        yOffset = yOffset - 30
-    end
-end
-
--- Работа с ротациями
+-- Ротация
 function RotationMaster:StartRotation()
     if not self.rotationFrame then
         self.rotationFrame = CreateFrame("Frame", nil, UIParent)
@@ -324,7 +215,6 @@ function RotationMaster:ToggleRotation(rotationKey, enable)
             return
         end
         self.activeRotation = _G[rotationKey]
-        self.activeRotation.settings = self.rotations[class][rotationKey].settings
         self.isEnabled = true
         self:StartRotation()
     else
@@ -334,60 +224,90 @@ function RotationMaster:ToggleRotation(rotationKey, enable)
     end
 end
 
--- Сохранение настроек
+-- Список ротаций
+function RotationMaster:ShowRotationList(class)
+    if self.rotationList then
+        self.rotationList:Hide()
+    end
+
+    -- Окно выбора ротаций
+    self.rotationList = CreateFrame("Frame", "RM_RotationList", self.frame)
+    self.rotationList:SetSize(200, 170)
+    self.rotationList:SetPoint("LEFT", self.frame, "RIGHT", 10, 0)
+    self.rotationList:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true, tileSize = 32, edgeSize = 32,
+        insets = {left = 11, right = 12, top = 12, bottom = 11}
+    })
+
+    -- Заголовок окна
+    local title = self.rotationList:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    title:SetPoint("TOP", 0, -10)
+    title:SetText("Выберите ротацию")
+
+    -- Кнопка закрытия
+    local closeBtn = CreateFrame("Button", nil, self.rotationList, "UIPanelCloseButton")
+    closeBtn:SetPoint("TOPRIGHT", -5, -5)
+    closeBtn:SetScript("OnClick", function()
+        self.rotationList:Hide()
+    end)
+
+    -- Список ротаций
+    local yOffset = -40
+    for rotationKey, rotationName in pairs(self.rotations[class]) do
+        local checkbox = CreateFrame("CheckButton", "RM_RotationCheckbox_" .. rotationKey, self.rotationList, "UICheckButtonTemplate")
+        checkbox:SetSize(26, 26)
+        checkbox:SetPoint("TOPLEFT", 20, yOffset)
+        checkbox:SetChecked(self.activeRotation == rotationKey)
+        checkbox:SetScript("OnClick", function()
+            self:ToggleRotation(rotationKey, checkbox:GetChecked())
+        end)
+
+        local text = self.rotationList:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        text:SetPoint("LEFT", checkbox, "RIGHT", 5, 0)
+        text:SetText(rotationName)
+
+        yOffset = yOffset - 30
+    end
+end
+
+-- Загрузка настроек
 function RotationMaster:LoadSettings()
     if not _G[self.dbName] then
-        _G[self.dbName] = {rotationSettings = {}}
+        _G[self.dbName] = {}
         self:InfoPrint("Настройки созданы.")
         return
     end
 
     local db = _G[self.dbName]
 
-    for class, rotations in pairs(self.rotations) do
-        for rotationKey, rotationData in pairs(rotations) do
-            if type(rotationData) == "table" and db.rotationSettings[rotationKey] then
-                for k, v in pairs(db.rotationSettings[rotationKey]) do
-                    rotationData.settings[k] = v
-                end
-            end
-        end
-    end
-
+    -- Загружаем позицию окна
     if db.position then
         self.frame:ClearAllPoints()
         self.frame:SetPoint(db.position.point, db.position.x, db.position.y)
         self.frame:SetSize(db.position.width, db.position.height)
     end
 
+    -- Загружаем режим отладки
     if db.debugMode ~= nil then
         self.debugMode = db.debugMode
         self.debugCheckbox:SetChecked(self.debugMode)
     end
 end
 
+-- Сохранение настроек
 function RotationMaster:SaveSettings()
     _G[self.dbName] = _G[self.dbName] or {}
     local db = _G[self.dbName]
 
-    db.rotationSettings = {}
-    for class, rotations in pairs(self.rotations) do
-        for rotationKey, rotationData in pairs(rotations) do
-            if type(rotationData) == "table" then
-                db.rotationSettings[rotationKey] = rotationData.settings
-            end
-        end
-    end
-
-    if self.frame then
-        db.position = {
-            point = select(1, self.frame:GetPoint()),
-            x = select(2, self.frame:GetPoint()),
-            y = select(3, self.frame:GetPoint()),
-            width = self.frame:GetWidth(),
-            height = self.frame:GetHeight()
-        }
-    end
+    db.position = {
+        point = select(1, self.frame:GetPoint()),
+        x = select(2, self.frame:GetPoint()),
+        y = select(3, self.frame:GetPoint()),
+        width = self.frame:GetWidth(),
+        height = self.frame:GetHeight()
+    }
 
     db.debugMode = self.debugMode
 end
@@ -395,7 +315,7 @@ end
 -- Регистрация ротаций
 function RotationMaster:RegisterRotations()
     for class, rotations in pairs(self.rotations) do
-        for rotationKey, rotationData in pairs(rotations) do
+        for rotationKey, rotationName in pairs(rotations) do
             if not _G[rotationKey] then
                 self:ErrorPrint("Ротация не найдена: " .. rotationKey)
             end
@@ -410,16 +330,15 @@ function RotationMaster:Initialize()
     self:CreateMinimapButton()
     self:LoadSettings()
     self:RegisterRotations()
-    self.frame:Hide()
+    self.frame:Hide()  -- По умолчанию окно скрыто
 end
 
 -- Слэш-команды
 SLASH_ROTMASTER1 = "/rotmaster"
 SlashCmdList["ROTMASTER"] = function()
-    if not RotationMaster.frame then
-        RotationMaster:CreateGUI()
+    if RotationMaster.frame then
+        RotationMaster.frame:SetShown(not RotationMaster.frame:IsShown())
     end
-    RotationMaster.frame:SetShown(not RotationMaster.frame:IsShown())
 end
 
 SLASH_ROTSTOP1 = "/rotstop"
